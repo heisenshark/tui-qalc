@@ -1,61 +1,76 @@
-use std::process::{Child, Command};
-use cursive::event::Key;
-use cursive::theme::{Style};
-use cursive::views::{
-    Button, Dialog, DummyView, EditView, LinearLayout, NamedView, SelectView, TextView,
-};
+pub mod async_text_view;
+pub mod expression_view;
+use crate::async_text_view::AsyncTextView;
+use cursive::event::Event;
+use cursive::traits::*;
+use cursive::views::{EditView, LinearLayout, SelectView};
 use cursive::Cursive;
-use cursive::{traits::*, Vec2};
+use expression_view::create_expression_view;
+use std::process::Command;
+use std::sync::{mpsc, Arc, Mutex};
+use std::thread::{self};
 
 fn main() {
-    let x = Command::new("qalc")
-        .arg("1 +1 1+1 +1 ")
-        .output()
-        .unwrap()
-        .stdout;
     let mut siv = cursive::default();
-    println!("{:?}", String::from_utf8(x));
-    let history: Vec<String> = vec![];
-
-    siv.add_global_callback(Key::Enter, |s| {
-        let e = s.find_name::<EditView>("editv").unwrap();
-
-        s.call_on_name("history", |history_view: &mut SelectView<String>| {
-            history_view.add_item(e.get_content().to_string(), e.get_content().to_string());
-        });
+    let cb_sink = siv.cb_sink().clone();
+    siv.add_global_callback(Event::CtrlChar('q'), |s| s.quit());
+    let (tx, rx) = mpsc::channel();
+    let expression_value = Arc::new(Mutex::new("".to_owned()));
+    let ex_ref = expression_value.to_owned();
+    thread::spawn(move || {
+        update_message(&tx, cb_sink, &ex_ref);
     });
-    let xd: NamedView<TextView> = TextView::new("").with_name("expression");
-    let mut history_view: NamedView<SelectView<String>> = SelectView::new().with_name("history");
-    let mut dupa = EditView::new()
-        .on_edit(|s, text, _| {
-            let dupa = s.call_on_name("expression", |textobj: &mut TextView| {
-                if text.len() <= 0 {
-                    return;
-                }
-                textobj.set_content_wrap(true);
-                match Command::new("qalc").arg(text).output() {
-                    Ok(out) => {
-                        let mut stout = String::from_utf8(out.stdout).unwrap();
-
-                        if stout.matches("error").count() >= 1 {
-                            textobj.set_style(Style::highlight());
-                        } else {
-                            textobj.set_style(Style::primary());
-                        }
-                        textobj.set_content(stout);
-                    }
-                    Err(e) => {
-                        textobj.set_content(format!("qualc errored {:?}", e));
-                    }
-                }
-            });
+    let ex_ref = expression_value.clone();
+    let history_view = SelectView::<String>::new()
+        .on_submit(move |s: &mut Cursive, data: &str| {
+            let mut edit_view = s.find_name::<EditView>("edit_view").unwrap();
+            edit_view.set_content(data);
+            let mut lock = ex_ref.lock().unwrap();
+            *lock = data.into();
         })
-        .with_name("editv");
+        .with_name("history");
+    let ex_ref = expression_value.to_owned();
+    let on_edit = move |_: &mut Cursive, b: &str, _: usize| {
+        let mut lock = ex_ref.lock().unwrap();
+        *lock = b.into();
+    };
+    let expression_view = create_expression_view(on_edit.clone());
+    let result_preview = AsyncTextView::new("", "".to_owned(), rx);
     let layout = LinearLayout::vertical()
-        .child(dupa)
-        .child(xd)
-        .child(history_view)
-        .full_screen();
-    siv.add_layer(layout);
+        .child(
+            LinearLayout::vertical()
+                .child(history_view)
+                .scrollable()
+                .scroll_y(true)
+                .full_height(),
+        )
+        .child(expression_view)
+        .child(result_preview)
+        .full_width();
+    siv.add_fullscreen_layer(layout);
     siv.run();
+}
+
+#[cached::proc_macro::cached]
+pub fn qalc_cache(equation: String) -> String {
+    match Command::new("qalc").arg(equation).output() {
+        Ok(out) => {
+            return String::from_utf8(out.stdout).unwrap();
+        }
+        Err(_) => {
+            return "error???!!!".to_owned();
+        }
+    }
+}
+
+fn update_message(tx: &mpsc::Sender<String>, cb_sink: cursive::CbSink, vedit_ref: &Mutex<String>) {
+    loop {
+        thread::sleep(std::time::Duration::from_millis(40));
+        let xd = vedit_ref.lock().unwrap();
+        let xx = qalc_cache(xd.to_owned());
+        if tx.send(xx).is_err() {
+            return;
+        }
+        cb_sink.send(Box::new(Cursive::noop)).unwrap();
+    }
 }

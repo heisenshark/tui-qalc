@@ -11,6 +11,8 @@ closure = "0.3.0"
 crossterm = "0.27.0"
 cursive = { git = "https://github.com/gyscos/cursive"}
 debounce = "0.2.2"
+dirs = "5.0.1"
+itertools = "0.12.1"
 memoize = {version="0.4.2",features=["full"]}
 ncurses = "5.101.0"
 owning_ref = "0.4.1"

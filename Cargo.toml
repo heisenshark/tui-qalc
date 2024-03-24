@@ -1,5 +1,5 @@
 [package]
-name = "editor-rs"
+name = "tui-qalc"
 version = "0.1.0"
 edition = "2021"
 

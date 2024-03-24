@@ -20,7 +20,6 @@ use std::time::Duration;
 fn main() {
     let (mut history_file, mut history_lines) = open_history();
     let mut siv = cursive::default();
-    println!("{:?}", siv.current_theme());
     let mut palete = cursive::theme::Palette::terminal_default();
     palete.set_color("Highlight", Color::Dark(theme::BaseColor::Red));
     siv.set_theme(theme::Theme {

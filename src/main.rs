@@ -1,33 +1,31 @@
 pub mod async_text_view;
 pub mod expression_view;
 use crate::async_text_view::AsyncTextView;
-use cursive::direction::Direction;
 use cursive::event::{Event, Key};
 use cursive::theme::{self, Color, ColorStyle, Style};
 use cursive::utils::markup::StyledString;
 use cursive::utils::span::SpannedString;
-use cursive::view::{ScrollStrategy, Selector};
-use cursive::views::{EditView, LinearLayout, OnEventView, ScrollView, SelectView};
 use cursive::Cursive;
 use cursive::{traits::*, views};
+use cursive::{
+    view::Selector,
+    views::{EditView, LinearLayout, OnEventView, ScrollView, SelectView},
+};
 use expression_view::{create_expression_view, open_history};
-use itertools::Itertools;
 use std::process::Command;
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
 use std::time::Duration;
 
 fn main() {
-    let (mut history_file, mut history_lines) = open_history();
-    let mut siv = cursive::default();
+    let (history_file, mut history_lines) = open_history();
+    let mut siv = cursive::crossterm();
     let mut palete = cursive::theme::Palette::terminal_default();
     palete.set_color("Highlight", Color::Dark(theme::BaseColor::Red));
     siv.set_theme(theme::Theme {
         palette: palete,
-        // borders: theme::BorderStyle::Outset,
         ..Default::default()
     });
-    // siv.update_theme();
     let cb_sink = siv.cb_sink().clone();
     siv.add_global_callback(Event::CtrlChar('q'), |s| s.quit());
     let (tx, rx) = mpsc::channel();
@@ -54,22 +52,16 @@ fn main() {
             let value = chiter.next().unwrap().to_string();
             let mut ss = String::new();
             let result = chiter.next().unwrap_or_else(|| &mut ss);
-            Style::primary();
-            // Style::merge(styles)
             let sss = ColorStyle::new(Color::TerminalDefault, Color::TerminalDefault);
             let stringg =
                 SpannedString::single_span(format!("{} {}", value, result), Style::from(sss));
             let mut styledstring = StyledString::new();
             styledstring.append_styled(format!("{} {}", value, result), Style::terminal_default());
-            // stringg.width();
-            // SpannedString::new()
-
-            // StyledString::from(format!("{} {}", valuer result));
             return (stringg, value);
         })
         .into_iter();
     history_inner.add_all(iter_his);
-    let mut history_view = OnEventView::new(
+    let history_view = OnEventView::new(
         history_inner
             .with(|h| {
                 h.select_down(1000);
@@ -96,9 +88,6 @@ fn main() {
         let _ = s.focus_name("edit_view");
     })
     .on_pre_event(Event::CtrlChar('k'), |s| {
-            let mut history = s
-                .find_name::<ScrollView<LinearLayout>>("history_scroller")
-                .unwrap();
         let _ = s.focus_name("edit_view");
     })
     .on_pre_event(Event::CtrlChar('j'), |s| {
@@ -109,9 +98,9 @@ fn main() {
         let mut lock = ex_ref.lock().unwrap();
         *lock = b.into();
     };
-    let mut hf = Mutex::new(history_file);
+    let hf = Mutex::new(history_file);
     let expression_view = create_expression_view(on_edit.clone(), hf);
-    let result_preview = AsyncTextView::new("", "".to_owned(), rx).center();
+    let result_preview = AsyncTextView::new("Type something here ^", rx).center();
     let mut expression_view = views::Panel::new(expression_view);
     expression_view.set_title("Expression");
     let mut history_layout = views::Panel::new(
@@ -132,13 +121,9 @@ fn main() {
         .child(result_preview)
         .full_width()
         .with(|s| {
-            // thread::sleep(Duration::from_millis(10000));
             let mut history = s.find_name::<SelectView>("history").unwrap();
             history.select_down(100000);
-            let mut history = s
-                .find_name::<ScrollView<LinearLayout>>("history_scroller")
-                .unwrap();
-            s.focus_view(&Selector::Name("edit_view"));
+            let _ = s.focus_view(&Selector::Name("edit_view"));
         });
     siv.add_fullscreen_layer(layout);
     let mut runner = siv.try_runner().unwrap();
@@ -149,13 +134,19 @@ fn main() {
     thread::sleep(Duration::from_millis(10));
     runner.step();
     thread::sleep(Duration::from_millis(10));
-    runner.find_name::<ScrollView<LinearLayout>>("history_scroller").unwrap().scroll_to_bottom();
+    runner
+        .find_name::<ScrollView<LinearLayout>>("history_scroller")
+        .unwrap()
+        .scroll_to_bottom();
     runner.step();
     runner.run();
 }
 
 #[cached::proc_macro::cached]
 pub fn qalc_cache(equation: String) -> String {
+    if equation == "" {
+        return "Type something here ^".to_owned();
+    }
     match Command::new("qalc").arg(equation).output() {
         Ok(out) => {
             return String::from_utf8(out.stdout).unwrap();

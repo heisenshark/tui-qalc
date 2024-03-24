@@ -4,9 +4,8 @@ use std::{
     path::Path,
 };
 
-use closure::closure;
 use cursive::{
-    direction::Direction, event::{Event, Key}, theme::Style, view::Nameable, views::{EditView, LinearLayout, NamedView, OnEventView, ScrollView, SelectView}, Cursive, View
+     event::{Event, Key}, view::Nameable, views::{EditView, NamedView, OnEventView, SelectView}, Cursive
 };
 use regex::Regex;
 
@@ -17,7 +16,7 @@ pub fn create_expression_view<F>(
 where
     F: 'static + Fn(&mut Cursive, &str, usize) + Send + Sync + Clone,
 {
-    let mut edit_v = EditView::new()
+    let edit_v = EditView::new()
         .on_edit(on_edit.clone())
         .on_submit_mut(move |s, data| {
             let mut e = s.find_name::<EditView>("edit_view").unwrap();
@@ -37,11 +36,12 @@ where
                     .write(format!("{}\n{}", e.get_content().to_string(), generated).as_bytes())
 
             });
-            s.focus_name("history");
-            s.focus_name("edit_view");
+            let _ = s.focus_name("history");
+            let _ = s.focus_name("edit_view");
             e.set_content("");
         });
     let on_editt = on_edit.clone();
+    let on_edittt = on_edit.clone();
     let wrapped_edit_v = OnEventView::new(edit_v.with_name("edit_view"))
         .on_pre_event(Event::CtrlChar('h'), move |s| {
             let mut edit_view = s.find_name::<EditView>("edit_view").unwrap();
@@ -56,6 +56,20 @@ where
             edit_view.set_content(&res);
             edit_view.set_cursor(ss.len());
             on_editt(s, &res, 0);
+        })
+        .on_pre_event(Event::Ctrl(Key::Backspace), move |s| {
+            let mut edit_view = s.find_name::<EditView>("edit_view").unwrap();
+            edit_view.get_cursor();
+            let content = edit_view.get_content();
+            let (l, r) = content.split_at(edit_view.get_cursor());
+            let l = String::from_iter(l.chars().rev());
+            let re = Regex::new(r"^.\s{0,}[(\w\d]{0,}").unwrap();
+            let res = re.replacen(&l, 0, "").to_string();
+            let ss: String = res.chars().rev().into_iter().collect::<String>();
+            let res = format!("{}{}", ss, r);
+            edit_view.set_content(&res);
+            edit_view.set_cursor(ss.len());
+            on_edittt(s, &res, 0);
         })
         .on_pre_event(Event::Ctrl(Key::Left), move |s| {
             let mut edit_view = s.find_name::<EditView>("edit_view").unwrap();
@@ -108,7 +122,7 @@ pub fn open_history() -> (File, Vec<String>) {
         ));
     let mut file_create_res = file_create_res.unwrap();
     let mut history_data = String::new();
-    let mut history = file_create_res.read_to_string(&mut history_data).unwrap();
-    let mut history_data: Vec<String> = history_data.lines().map(|x| x.to_string()).collect();
+    file_create_res.read_to_string(&mut history_data).unwrap();
+    let history_data: Vec<String> = history_data.lines().map(|x| x.to_string()).collect();
     return (file_create_res, history_data);
 }

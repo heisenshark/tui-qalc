@@ -188,7 +188,6 @@ impl TextContentInner {
 /// ```
 pub struct AsyncTextView {
     // content: String,
-    buffer: String,
     rx: std::sync::mpsc::Receiver<String>,
     content: TextContent,
     rows: Vec<Row>,
@@ -206,11 +205,11 @@ pub struct AsyncTextView {
 
 impl AsyncTextView {
     /// Creates a new AsyncTextView with the given content.
-    pub fn new<S>(content: S, buffer: String, rx: std::sync::mpsc::Receiver<String>) -> Self
+    pub fn new<S>(content: S, rx: std::sync::mpsc::Receiver<String>) -> Self
     where
         S: Into<StyledString>,
     {
-        Self::new_with_content(TextContent::new(content), buffer, rx)
+        Self::new_with_content(TextContent::new(content), rx)
     }
 
     /// Creates a new AsyncTextView using the given `TextContent`.
@@ -231,12 +230,10 @@ impl AsyncTextView {
     /// ```
     pub fn new_with_content(
         content: TextContent,
-        buffer: String,
         rx: std::sync::mpsc::Receiver<String>,
     ) -> Self {
         AsyncTextView {
             rx,
-            buffer,
             content,
             style: StyleType::default(),
             rows: Vec::new(),

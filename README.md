@@ -1,4 +1,4 @@
-# TUI-QUALC
+# TUI-QALC
 
 A simple tui app for calculation basing on the [qalc](https://qalculate.github.io/)(**required**) program
 with instant preview and results history
@@ -9,5 +9,5 @@ with instant preview and results history
 
 You need qalc installed and in your PATH as well as cargo and rust.
 ```
-git clone https://github.com/heisenshark/tui-qualc.git && cargo run
+git clone https://github.com/heisenshark/tui-qalc.git && cargo run
 ```

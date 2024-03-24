@@ -93,7 +93,6 @@ pub fn open_history() -> (File, Vec<String>) {
         &dirs::home_dir().unwrap(),
         ".local/share/qalc-tui",
     ));
-    // let xdd = File::create(Path::join(&dirs::home_dir().unwrap(), ".local/share/qalc-tui/history"));
     let file_create_res = OpenOptions::new()
         .create(true)
         .append(true)

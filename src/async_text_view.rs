@@ -7,7 +7,7 @@ use owning_ref::{ArcRef, OwningHandle};
 use unicode_width::UnicodeWidthStr;
 
 use cursive::align::*;
-use cursive::theme::{Effect, StyleType};
+use cursive::theme::{Effect, Style, StyleType};
 use cursive::utils::lines::spans::{LinesIterator, Row};
 use cursive::utils::markup::StyledString;
 use cursive::{
@@ -438,9 +438,13 @@ impl View for AsyncTextView {
     fn layout(&mut self, size: Vec2) {
         // Compute the text rows.
         while let Ok(line) = self.rx.try_recv() {
+            if line.matches("error").count() >= 1usize {
+                self.set_style(Style::highlight());
+            } else {
+                self.set_style(Style::terminal_default());
+            }
             self.set_content(line);
             // self.buffer = line;
-
             self.compute_rows(size);
 
             // The entire "virtual" size (includes all rows)

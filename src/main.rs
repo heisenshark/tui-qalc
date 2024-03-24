@@ -6,6 +6,7 @@ use cursive::theme::{self, Color, ColorStyle, Style};
 use cursive::traits::*;
 use cursive::utils::markup::StyledString;
 use cursive::utils::span::SpannedString;
+use cursive::view::Selector;
 use cursive::views::{EditView, LinearLayout, OnEventView, SelectView};
 use cursive::Cursive;
 use expression_view::{create_expression_view, open_history};
@@ -18,8 +19,10 @@ fn main() {
     let (mut history_file, mut history_lines) = open_history();
     let mut siv = cursive::default();
     println!("{:?}", siv.current_theme());
-    siv.set_theme(theme::Theme{
-        palette: cursive::theme::Palette::terminal_default(),
+    let mut palete = cursive::theme::Palette::terminal_default();
+    palete.set_color("Highlight", Color::Dark(theme::BaseColor::Red));
+    siv.set_theme(theme::Theme {
+        palette: palete,
         // borders: theme::BorderStyle::Outset,
         ..Default::default()
     });
@@ -56,8 +59,8 @@ fn main() {
             let stringg =
                 SpannedString::single_span(format!("{} {}", value, result), Style::from(sss));
             let mut styledstring = StyledString::new();
-            styledstring.append_styled(format!("{} {}", value, result),Style::terminal_default());
-            // stringg.width(); 
+            styledstring.append_styled(format!("{} {}", value, result), Style::terminal_default());
+            // stringg.width();
             // SpannedString::new()
 
             // StyledString::from(format!("{} {}", valuer result));
@@ -65,7 +68,8 @@ fn main() {
         })
         .into_iter();
     history_inner.add_all(iter_his);
-    let history_view = OnEventView::new(history_inner.with_name("history"))
+    history_inner.select_down(100000);
+    let mut history_view = OnEventView::new(history_inner.with_name("history"))
         .on_event('j', |s| {
             let mut hist = s.find_name::<SelectView>("history").unwrap();
             hist.select_down(1);
@@ -109,8 +113,10 @@ fn main() {
         )
         .child(expression_view)
         .child(result_preview)
-        .full_width();
-
+        .full_width()
+        .with(|s| {
+            s.focus_view(&Selector::Name("edit_view") );
+        });
     siv.add_fullscreen_layer(layout);
     siv.run();
 }
@@ -130,9 +136,9 @@ pub fn qalc_cache(equation: String) -> String {
 fn update_message(tx: &mpsc::Sender<String>, cb_sink: cursive::CbSink, vedit_ref: &Mutex<String>) {
     loop {
         thread::sleep(std::time::Duration::from_millis(40));
-        let xd = vedit_ref.lock().unwrap();
-        let xx = qalc_cache(xd.to_owned());
-        if tx.send(xx).is_err() {
+        let lock = vedit_ref.lock().unwrap();
+        let fn_val = qalc_cache(lock.to_owned());
+        if tx.send(fn_val).is_err() {
             return;
         }
         cb_sink.send(Box::new(Cursive::noop)).unwrap();

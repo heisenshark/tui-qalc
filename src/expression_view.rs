@@ -6,7 +6,7 @@ use std::{
 
 use closure::closure;
 use cursive::{
-    event::{Event, Key}, theme::Style, view::Nameable, views::{EditView, NamedView, OnEventView, SelectView}, Cursive
+    direction::Direction, event::{Event, Key}, theme::Style, view::Nameable, views::{EditView, LinearLayout, NamedView, OnEventView, ScrollView, SelectView}, Cursive, View
 };
 use regex::Regex;
 
@@ -30,10 +30,15 @@ where
                     format!("{} {}", e.get_content().to_string(), generated),
                     e.get_content().to_string(),
                 );
+                history_view.select_down(10000);
+                // history_view.take_focus(Direction::none());
                 let mut lock = history_file.lock().unwrap();
                 lock
                     .write(format!("{}\n{}", e.get_content().to_string(), generated).as_bytes())
+
             });
+            s.focus_name("history");
+            s.focus_name("edit_view");
             e.set_content("");
         });
     let on_editt = on_edit.clone();

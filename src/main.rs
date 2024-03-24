@@ -1,19 +1,21 @@
 pub mod async_text_view;
 pub mod expression_view;
 use crate::async_text_view::AsyncTextView;
+use cursive::direction::Direction;
 use cursive::event::{Event, Key};
 use cursive::theme::{self, Color, ColorStyle, Style};
-use cursive::traits::*;
 use cursive::utils::markup::StyledString;
 use cursive::utils::span::SpannedString;
-use cursive::view::Selector;
-use cursive::views::{EditView, LinearLayout, OnEventView, SelectView};
+use cursive::view::{ScrollStrategy, Selector};
+use cursive::views::{EditView, LinearLayout, OnEventView, ScrollView, SelectView};
 use cursive::Cursive;
+use cursive::{traits::*, views};
 use expression_view::{create_expression_view, open_history};
 use itertools::Itertools;
 use std::process::Command;
 use std::sync::{mpsc, Arc, Mutex};
-use std::thread::{self};
+use std::thread;
+use std::time::Duration;
 
 fn main() {
     let (mut history_file, mut history_lines) = open_history();
@@ -68,33 +70,41 @@ fn main() {
         })
         .into_iter();
     history_inner.add_all(iter_his);
-    history_inner.select_down(100000);
-    let mut history_view = OnEventView::new(history_inner.with_name("history"))
-        .on_event('j', |s| {
-            let mut hist = s.find_name::<SelectView>("history").unwrap();
-            hist.select_down(1);
-        })
-        .on_event('k', |s| {
-            let mut hist = s.find_name::<SelectView>("history").unwrap();
-            hist.select_up(1);
-        })
-        .on_event(Event::Key(Key::PageDown), |s| {
-            let mut hist = s.find_name::<SelectView>("history").unwrap();
-            hist.select_down(10);
-        })
-        .on_event(Event::Key(Key::PageUp), |s| {
-            let mut hist = s.find_name::<SelectView>("history").unwrap();
-            hist.select_up(10);
-        })
-        .on_pre_event(Event::Ctrl(Key::Down), |s| {
-            let _ = s.focus_name("edit_view");
-        })
-        .on_pre_event(Event::CtrlChar('k'), |s| {
-            let _ = s.focus_name("edit_view");
-        })
-        .on_pre_event(Event::CtrlChar('j'), |s| {
-            let _ = s.focus_name("edit_view");
-        });
+    let mut history_view = OnEventView::new(
+        history_inner
+            .with(|h| {
+                h.select_down(1000);
+            })
+            .with_name("history"),
+    )
+    .on_event('j', |s| {
+        let mut hist = s.find_name::<SelectView>("history").unwrap();
+        hist.select_down(1);
+    })
+    .on_event('k', |s| {
+        let mut hist = s.find_name::<SelectView>("history").unwrap();
+        hist.select_up(1);
+    })
+    .on_event(Event::Key(Key::PageDown), |s| {
+        let mut hist = s.find_name::<SelectView>("history").unwrap();
+        hist.select_down(10);
+    })
+    .on_event(Event::Key(Key::PageUp), |s| {
+        let mut hist = s.find_name::<SelectView>("history").unwrap();
+        hist.select_up(10);
+    })
+    .on_pre_event(Event::Ctrl(Key::Down), |s| {
+        let _ = s.focus_name("edit_view");
+    })
+    .on_pre_event(Event::CtrlChar('k'), |s| {
+            let mut history = s
+                .find_name::<ScrollView<LinearLayout>>("history_scroller")
+                .unwrap();
+        let _ = s.focus_name("edit_view");
+    })
+    .on_pre_event(Event::CtrlChar('j'), |s| {
+        let _ = s.focus_name("edit_view");
+    });
     let ex_ref = expression_value.to_owned();
     let on_edit = move |_: &mut Cursive, b: &str, _: usize| {
         let mut lock = ex_ref.lock().unwrap();
@@ -102,23 +112,47 @@ fn main() {
     };
     let mut hf = Mutex::new(history_file);
     let expression_view = create_expression_view(on_edit.clone(), hf);
-    let result_preview = AsyncTextView::new("", "".to_owned(), rx);
+    let result_preview = AsyncTextView::new("", "".to_owned(), rx).center();
+    let mut expression_view = views::Panel::new(expression_view);
+    expression_view.set_title("Expression");
+    let mut history_layout = views::Panel::new(
+        LinearLayout::vertical()
+            .child(history_view)
+            .scrollable()
+            .scroll_y(true)
+            .with(|l| {
+                l.scroll_to_bottom();
+            })
+            .with_name("history_scroller")
+            .full_height(),
+    );
+    history_layout.set_title("history");
     let layout = LinearLayout::vertical()
-        .child(
-            LinearLayout::vertical()
-                .child(history_view)
-                .scrollable()
-                .scroll_y(true)
-                .full_height(),
-        )
+        .child(history_layout)
         .child(expression_view)
         .child(result_preview)
         .full_width()
         .with(|s| {
-            s.focus_view(&Selector::Name("edit_view") );
+            // thread::sleep(Duration::from_millis(10000));
+            let mut history = s.find_name::<SelectView>("history").unwrap();
+            history.select_down(100000);
+            let mut history = s
+                .find_name::<ScrollView<LinearLayout>>("history_scroller")
+                .unwrap();
+            s.focus_view(&Selector::Name("edit_view"));
         });
     siv.add_fullscreen_layer(layout);
-    siv.run();
+    let mut runner = siv.try_runner().unwrap();
+    runner.step();
+    runner.step();
+    runner.step();
+    runner.step();
+    thread::sleep(Duration::from_millis(10));
+    runner.step();
+    thread::sleep(Duration::from_millis(10));
+    runner.find_name::<ScrollView<LinearLayout>>("history_scroller").unwrap().scroll_to_bottom();
+    runner.step();
+    runner.run();
 }
 
 #[cached::proc_macro::cached]

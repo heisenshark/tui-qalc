@@ -437,6 +437,7 @@ impl View for AsyncTextView {
 
     fn layout(&mut self, size: Vec2) {
         // Compute the text rows.
+        self.set_content(">");
         while let Ok(line) = self.rx.try_recv() {
             if line.matches("error").count() >= 1usize {
                 self.set_style(Style::highlight());

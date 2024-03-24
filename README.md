@@ -1,6 +1,6 @@
 # TUI-QALC
 
-A simple tui app for calculation basing on the [qalc](https://qalculate.github.io/)(**required**) program
+A simple tui app for calculation acting as a wrapper of the [qalc](https://qalculate.github.io/)(**required**) cli program/library
 with instant preview and results history
 
 ![qalc-tui-demo.gif](qalc-tui-demo.gif)

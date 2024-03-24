@@ -6,40 +6,18 @@ use std::{
 
 use closure::closure;
 use cursive::{
-    event::{Event, Key},
-    view::Nameable,
-    views::{EditView, NamedView, OnEventView, SelectView},
-    Cursive,
+    event::{Event, Key}, theme::Style, view::Nameable, views::{EditView, NamedView, OnEventView, SelectView}, Cursive
 };
 use regex::Regex;
 
 pub fn create_expression_view<F>(
     on_edit: F,
-    history_file: &mut File,
+    history_file: std::sync::Mutex<File>,
 ) -> OnEventView<NamedView<EditView>>
 where
     F: 'static + Fn(&mut Cursive, &str, usize) + Send + Sync + Clone,
 {
-    let dir_create_res = fs::create_dir_all(Path::join(
-        &dirs::home_dir().unwrap(),
-        ".local/share/qalc-tui",
-    ));
-    // let xdd = File::create(Path::join(&dirs::home_dir().unwrap(), ".local/share/qalc-tui/history"));
-    let file_create_res = OpenOptions::new()
-        .create(true)
-        .append(true)
-        .read(true)
-        .open(Path::join(
-            &dirs::home_dir().unwrap(),
-            ".local/share/qalc-tui/history",
-        ));
-    let mut file_create_res = file_create_res.unwrap();
-    let mut history_data = String::new();
-    let mut history = file_create_res.read_to_string(&mut history_data).unwrap();
-    let mut history_data: Vec<String> = history_data.lines().map(|x| x.to_string()).collect();
-
-    println!("{dir_create_res:?}{file_create_res:?}{history_data:?}");
-    let edit_v = EditView::new()
+    let mut edit_v = EditView::new()
         .on_edit(on_edit.clone())
         .on_submit_mut(move |s, data| {
             let mut e = s.find_name::<EditView>("edit_view").unwrap();
@@ -52,17 +30,15 @@ where
                     format!("{} {}", e.get_content().to_string(), generated),
                     e.get_content().to_string(),
                 );
-                file_create_res
+                let mut lock = history_file.lock().unwrap();
+                lock
                     .write(format!("{}\n{}", e.get_content().to_string(), generated).as_bytes())
             });
             e.set_content("");
-        })
-        .with_name("edit_view");
-
+        });
     let on_editt = on_edit.clone();
-    let wrapped_edit_v = OnEventView::new(edit_v)
+    let wrapped_edit_v = OnEventView::new(edit_v.with_name("edit_view"))
         .on_pre_event(Event::CtrlChar('h'), move |s| {
-            //idk if ctrl + backspace works that way always
             let mut edit_view = s.find_name::<EditView>("edit_view").unwrap();
             edit_view.get_cursor();
             let content = edit_view.get_content();

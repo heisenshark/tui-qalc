@@ -2,7 +2,7 @@ pub mod async_text_view;
 pub mod expression_view;
 use crate::async_text_view::AsyncTextView;
 use cursive::event::{Event, Key};
-use cursive::theme::{Color, ColorStyle, Style};
+use cursive::theme::{self, Color, ColorStyle, Style};
 use cursive::traits::*;
 use cursive::utils::markup::StyledString;
 use cursive::utils::span::SpannedString;
@@ -17,6 +17,13 @@ use std::thread::{self};
 fn main() {
     let (mut history_file, mut history_lines) = open_history();
     let mut siv = cursive::default();
+    println!("{:?}", siv.current_theme());
+    siv.set_theme(theme::Theme{
+        palette: cursive::theme::Palette::terminal_default(),
+        // borders: theme::BorderStyle::Outset,
+        ..Default::default()
+    });
+    // siv.update_theme();
     let cb_sink = siv.cb_sink().clone();
     siv.add_global_callback(Event::CtrlChar('q'), |s| s.quit());
     let (tx, rx) = mpsc::channel();
@@ -34,6 +41,7 @@ fn main() {
             *lock = data.into();
             let _ = s.focus_name("edit_view");
         });
+
     let iter_his = history_lines
         .chunks_mut(2)
         .into_iter()
@@ -41,11 +49,18 @@ fn main() {
             let mut chiter = chunk.iter();
             let value = chiter.next().unwrap().to_string();
             let mut ss = String::new();
-            let result = chiter.next().unwrap_or_else(|| {&mut ss});
+            let result = chiter.next().unwrap_or_else(|| &mut ss);
             Style::primary();
-            let sss = ColorStyle::new(Color::TerminalDefault,Color::TerminalDefault);
-            let stringg= SpannedString::single_span(format!("{} {}", value,result),Style::from(sss));
-            // StyledString::from(format!("{} {}", valuer result)); 
+            // Style::merge(styles)
+            let sss = ColorStyle::new(Color::TerminalDefault, Color::TerminalDefault);
+            let stringg =
+                SpannedString::single_span(format!("{} {}", value, result), Style::from(sss));
+            let mut styledstring = StyledString::new();
+            styledstring.append_styled(format!("{} {}", value, result),Style::terminal_default());
+            // stringg.width(); 
+            // SpannedString::new()
+
+            // StyledString::from(format!("{} {}", valuer result));
             return (stringg, value);
         })
         .into_iter();
@@ -81,8 +96,8 @@ fn main() {
         let mut lock = ex_ref.lock().unwrap();
         *lock = b.into();
     };
-
-    let expression_view = create_expression_view(on_edit.clone(), &mut history_file);
+    let mut hf = Mutex::new(history_file);
+    let expression_view = create_expression_view(on_edit.clone(), hf);
     let result_preview = AsyncTextView::new("", "".to_owned(), rx);
     let layout = LinearLayout::vertical()
         .child(
@@ -95,6 +110,7 @@ fn main() {
         .child(expression_view)
         .child(result_preview)
         .full_width();
+
     siv.add_fullscreen_layer(layout);
     siv.run();
 }

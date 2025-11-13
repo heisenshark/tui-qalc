@@ -9,5 +9,7 @@ with instant preview and results history
 
 You need qalc installed and in your PATH as well as cargo and rust.
 ```
-git clone https://github.com/heisenshark/tui-qalc.git && cargo run
+git clone https://github.com/heisenshark/tui-qalc.git
+cd tui-qalc
+cargo run
 ```
